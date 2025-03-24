@@ -14,18 +14,20 @@ crate-type = ["cdylib"]
 bs58 = "0.4"
 hex-literal = "0.3"
 num-bigint = "0.4"
-prost = "0.11"
+prost = "0.11.9"
 # Use latest from https://crates.io/crates/substreams
 substreams = "0.5"
 # Use latest from https://crates.io/crates/substreams-solana
-substreams-solana = { git = "https://github.com/streamingfast/substreams-solana", branch = "master" }
+substreams-solana = { version="0.13.0"}
 substreams-solana-program-instructions = "0.1"
 serde_qs = "0.12.0"
 serde = { version = "1.0", features = ["derive"] }
 anyhow = "1.0"
+
 substreams-database-change = "1.0.0"
 ## added
 serde_json = "1.0"
+
 
 [target.wasm32-unknown-unknown.dependencies]
 getrandom = { version = "0.2", features = ["custom"] }

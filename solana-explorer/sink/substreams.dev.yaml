@@ -1,6 +1,6 @@
 specVersion: v0.1.0
 package:
-  name: "raydium-amm"
+  name: "map_block_without_votes_sinkdb"
   version: v0.0.2
 
 imports:
@@ -22,7 +22,7 @@ modules:
     kind: map
     initialBlock: 326880938
     inputs:
-      - map: sol:blocks_without_votes
+      - source: sf.solana.type.v1.Block
     output:
       type: proto:sf.substreams.sink.database.v1.DatabaseChanges
 
