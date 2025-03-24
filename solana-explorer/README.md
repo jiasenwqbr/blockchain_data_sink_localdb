@@ -239,3 +239,168 @@ Backprocessing history up to requested target block 153000028:
 ----------- BLOCK #153,000,029 (3LBYvzhWfdtcAwuCvoBzTCkUbpVbckyBFAcJezdScGhP) ---------------
 all done
 ```
+
+## block data structure
+
+### header
+
+#### 
+
+```json
+
+{
+    "previous_blockhash": "H71qFzUREou1PU8vnU89EDFciouGnxfjesCGvApKSpow",
+    "blockhash": "2YxKFHjcr2hL8FfZKXp5ehSRFRbH56wxtZCoa6u29dyx",
+    "parent_slot": 326880937,
+    "transactions":[]
+    "rewards": [
+        {
+            "pubkey": "7QGeaLDAhDdrLHZxFb27xL6GMoVGZ5oJTk7ULpgici1M",
+            "lamports": 10746330,
+            "post_balance": 8992919977,
+            "reward_type": 1,
+            "commission": ""
+        }
+    ],
+    "block_time": {
+        "timestamp": 1742026684
+    },
+    "block_height": {
+        "block_height": 305139705
+    },
+    "slot": 326880938
+}
+
+```
+
+
+
+#### 1.previous_blockhash
+
+```json
+"previous_blockhash": "H71qFzUREou1PU8vnU89EDFciouGnxfjesCGvApKSpow"
+```
+
+
+
+类型：字符串（String）
+
+含义：当前区块的前一个区块的哈希值。这个字段用于确保区块链的连贯性，每个区块都会包含前一个区块的哈希，从而形成区块链。
+
+#### 2.blockhash
+
+```json
+"blockhash": "2YxKFHjcr2hL8FfZKXp5ehSRFRbH56wxtZCoa6u29dyx"
+```
+类型：字符串（String）
+
+含义：当前区块的哈希值。这个哈希值是根据区块内容计算得到的，唯一标识当前区块。
+
+#### 3.parent_slot
+
+```json
+"parent_slot": 326880937
+```
+
+**类型**：整数（u64）
+
+**含义**：表示当前区块的父槽（slot）。在区块链中，槽（slot）通常用于表示区块的时间或顺序标识。`parent_slot` 表示这个区块的父级区块所在的槽。
+
+#### **4. `transactions`**
+
+```json
+
+"transactions": []
+复制编辑
+```
+
+**类型**：数组（Array）
+
+**含义**：当前区块中的交易列表。这个字段列出了所有在该区块中处理的交易。
+
+#### 5.`rewards`
+
+```json
+"rewards": [
+    {
+        "pubkey": "7QGeaLDAhDdrLHZxFb27xL6GMoVGZ5oJTk7ULpgici1M",
+        "lamports": 10746330,
+        "post_balance": 8992919977,
+        "reward_type": 1,
+        "commission": ""
+    }
+]
+```
+
+**类型**：数组（Array）
+
+**含义**：奖励信息。每个奖励项表示给一个账户分配的奖励。包括以下字段：
+
+- `pubkey`：奖励的接收账户的公钥，表示该账户在区块链中的唯一标识符。
+- `lamports`：奖励的数量，以 Lamports 为单位。Lamport 是 Solana 网络中的最小单位，类似于以太坊中的 Wei。
+- `post_balance`：奖励发放后，账户的余额。
+- `reward_type`：奖励类型。不同的数字可能代表不同类型的奖励，通常 `1` 代表一种特定类型的奖励（例如费用奖励、租金奖励等）。
+- `commission`：奖励的佣金，这里为空字符串，可能是一个可选字段。
+
+**常见的 `reward_type` 值**
+
+**`1` - Fee Reward (费用奖励)**
+
+- 这是最常见的奖励类型，表示用户或验证者因区块链上的交易手续费而获得的奖励。
+
+**`2` - Rent Reward (租金奖励)**
+
+- 这个奖励类型通常表示账户因持有资金而获得的租金奖励。Solana 使用这种奖励类型来激励账户持有者保留一定数量的资金。
+
+**`3` - Staking Reward (质押奖励)**
+
+- 该奖励类型表示用户参与了质押（staking）并因此获得的奖励。Solana 网络允许用户通过将其代币质押到验证者节点来获得奖励。
+
+**`4` - Voting Reward (投票奖励)**
+
+- 验证者参与投票并且投票正确时，可能会获得的奖励。Solana 验证者通过参与网络共识和投票，帮助确保网络的稳定性和安全性。
+
+**`5` - Inflation Reward (通胀奖励)**
+
+- 这个奖励类型表示随着通货膨胀而产生的奖励，通常与 Solana 的通货膨胀机制相关。网络中的新生成的代币会被分发给那些参与质押和验证的账户。
+
+#### **6. `block_time`**
+
+```json
+
+"block_time": {
+    "timestamp": 1742026684
+}
+```
+
+- **类型**：对象（Object）
+- **含义**：区块的时间戳。时间戳是一个整数，表示自 Unix 纪元以来的秒数。这里的时间戳 `1742026684` 代表了区块的创建时间。
+
+#### **7. `block_height`**
+
+```json
+"block_height": {
+    "block_height": 305139705
+}
+```
+
+- **类型**：对象（Object）
+- **含义**：区块的高度，表示区块链中该区块的顺序编号。`block_height` 字段的值是当前区块在区块链中的编号。
+
+#### **8. `slot`**
+
+```json
+"slot": 326880938
+```
+
+- **类型**：整数（u64）
+- **含义**：区块的槽位。Solana 网络中使用槽（slot）来标识区块。每个槽位通常表示一个时间段或某个区块的位置。
+
+
+
+### Transactions
+
+
+
+
+
