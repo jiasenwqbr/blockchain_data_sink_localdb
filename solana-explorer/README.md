@@ -771,11 +771,15 @@ This instruction is referring to a specific program and sending a particular set
 
 - **`meta`**: This object includes metadata related to the transaction execution, including:
 
-- **`err`**: This would show any error encountered during the execution. In this case, it's `null`, indicating no error.
-- **`fee`**: The transaction fee paid for executing the transaction, which is `105000` lamports.
-- **`pre_balances`** and **`post_balances`**: These represent the state of accounts before and after the transaction. Each balance corresponds to an account from the `account_keys` array.
-- **`inner_instructions`**: These represent any inner transactions that may have been invoked as part of the execution. Each entry here includes a series of instructions executed during this inner invocation.
-- **`log_messages`**: Logs generated during the execution of the transaction, which can provide insight into what happened during the transaction.
+  - **`err`**: This would show any error encountered during the execution. In this case, it's `null`, indicating no error.
+
+  - **`fee`**: The transaction fee paid for executing the transaction, which is `105000` lamports.
+
+  - **`pre_balances`** and **`post_balances`**: These represent the state of accounts before and after the transaction. Each balance corresponds to an account from the `account_keys` array.
+
+  - **`inner_instructions`**: These represent any inner transactions that may have been invoked as part of the execution. Each entry here includes a series of instructions executed during this inner invocation.
+
+  - **`log_messages`**: Logs generated during the execution of the transaction, which can provide insight into what happened during the transaction.
 
 For example:
 
