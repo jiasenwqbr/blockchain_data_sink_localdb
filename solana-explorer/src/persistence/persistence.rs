@@ -1,7 +1,7 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::format, usize};
 
 use crate::pb::sf::solana::r#type::v1::Block;
-use substreams_database_change::{pb::database::{table_change::Operation, DatabaseChanges}};
+use substreams_database_change::{change, pb::database::{table_change::Operation, DatabaseChanges}};
 use substreams_solana::base58;
 pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChanges) {
     let json = serde_json::to_string_pretty(&block).expect("序列化失败");
@@ -108,15 +108,260 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                 let return_data_data = base58::encode(meta.return_data.clone().unwrap_or_default().data);
                 let parent_table_id = format!("{}",block_number);
                 save_solana_block_transaction_status_meta(block_number,index,fee,inner_instructions_none,log_messages_none,return_data_none,return_data_program_id,return_data_data,parent_table_id,database_changes);
+                // block TransactionStatusMeta  InnerInstructions
+                let inner_instructions = &meta.inner_instructions;
+                for (inner_instructions_index,ii) in inner_instructions.iter().enumerate(){
+                    let ii_index = ii.index;
+                    for (inner_instruction_index ,instruction) in ii.instructions.iter().enumerate(){
+                        let program_id_index = instruction.program_id_index;
+                        let accounts = base58::encode(&instruction.accounts);
+                        let instruction_data: String = base58::encode(&instruction.data);
+                        // let data = instruction.data;
+                        let stack_height = instruction.stack_height.unwrap();
+                        let parent_table_id = format!("{}_{}",block_number,index);
+                        save_solana_block_transaction_status_meta_inner_instruction(
+                            block_number,
+                            index,
+                            inner_instructions_index,
+                            inner_instruction_index,
+                            ii_index,
+                            program_id_index,
+                            accounts,
+                            instruction_data,
+                            stack_height,
+                            parent_table_id,
+                            database_changes
+                        );
+                    }
+                }
+                // block TransactionStatusMeta  token_balances 
+                let pre_token_balances = &meta.pre_token_balances;
+                for (pre_token_balance_index, token_balance) in pre_token_balances.iter().enumerate() {
+                    let account_index  = token_balance.account_index;
+                    let mint = token_balance.mint.clone();
+                    let owner = token_balance.owner.clone();
+                    let program_id = token_balance.program_id.clone();
+                    let ui_token_amount_ui_amount = token_balance.ui_token_amount.clone().unwrap().ui_amount;
+                    let ui_token_amount_decimals = token_balance.ui_token_amount.clone().unwrap().decimals;
+                    let ui_token_amount_amount = token_balance.ui_token_amount.clone().unwrap().amount;
+                    let ui_token_amount_ui_amount_string = token_balance.ui_token_amount.clone().unwrap().ui_amount_string;
+                    let flag = 0;
+                    let parent_table_id = format!("{}_{}",block_number,index);
+                    save_solana_block_transaction_status_meta_pre_post_token_balances(
+                        block_number,
+                        index,
+                        flag,
+                        pre_token_balance_index,
+                        account_index,
+                        mint,
+                        ui_token_amount_ui_amount,
+                        ui_token_amount_decimals,
+                        ui_token_amount_amount,
+                        ui_token_amount_ui_amount_string,
+                        owner,
+                        program_id,
+                        parent_table_id,
+                        database_changes
 
+                    );
+
+                }
+                let post_token_balances = &meta.post_token_balances;
+                for (post_token_balance_index, token_balance) in post_token_balances.iter().enumerate() {
+                    let account_index  = token_balance.account_index;
+                    let mint = token_balance.mint.clone();
+                    let owner = token_balance.owner.clone();
+                    let program_id = token_balance.program_id.clone();
+                    let ui_token_amount_ui_amount = token_balance.ui_token_amount.clone().unwrap().ui_amount;
+                    let ui_token_amount_decimals = token_balance.ui_token_amount.clone().unwrap().decimals;
+                    let ui_token_amount_amount = token_balance.ui_token_amount.clone().unwrap().amount;
+                    let ui_token_amount_ui_amount_string = token_balance.ui_token_amount.clone().unwrap().ui_amount_string;
+                    let flag = 1;
+                    let parent_table_id = format!("{}_{}",block_number,index);
+                    save_solana_block_transaction_status_meta_pre_post_token_balances(
+                        block_number,
+                        index,
+                        flag,
+                        post_token_balance_index,
+                        account_index,
+                        mint,
+                        ui_token_amount_ui_amount,
+                        ui_token_amount_decimals,
+                        ui_token_amount_amount,
+                        ui_token_amount_ui_amount_string,
+                        owner,
+                        program_id,
+                        parent_table_id,
+                        database_changes
+
+                    );
+                }
+            
+                // block TransactionStatusMeta  rewards
+                let rewards = &meta.rewards;
+                for (rewoard_index,reward) in rewards.iter().enumerate(){
+                    let pubkey = reward.pubkey.clone();
+                    let lamports = reward.lamports;
+                    let post_balance = reward.post_balance;
+                    let reward_type = reward.reward_type;
+                    let commission = reward.commission.clone();
+                    let parent_id = format!("{}_{}",block_number,index);
+                    save_solana_block_transaction_status_meta_rewards(
+                        block_number,
+                        index,
+                        rewoard_index,
+                        pubkey,
+                        lamports,
+                        post_balance,
+                        reward_type,
+                        commission,
+                        parent_id,
+                        database_changes
+                    );
+                }
             },
             None => {}
         }
+    }
 
+    let rewards = block.rewards;
+    for (reward_index,reward) in rewards.iter().enumerate(){
+        let pubkey = reward.pubkey.clone();
+        let lamports = reward.lamports;
+        let post_balance = reward.post_balance;
+        let reward_type = reward.reward_type;
+        let commission = reward.commission.clone();
+        let parent_id = format!("{}",block_number);
+        save_solana_block_rewards(
+            block_number,
+            reward_index,
+            pubkey,
+            lamports,
+            post_balance,
+            reward_type,
+            commission,
+            parent_id,
+            database_changes
+        );
     }
     
     
 }
+
+fn save_solana_block_rewards(
+    block_number : u64,
+    reward_index : usize,
+    pubkey : String,
+    lamports : i64,
+    post_balance : u64,
+    reward_type : i32,
+    commission : String,
+    parent_id : String,
+    changes : &mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), format!("{}_{}",block_number,reward_index));
+    changes.push_change_composite("solana_block_rewards", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("reward_index", (None,reward_index as u64))
+    .change("pubkey", (None,pubkey))
+    .change("lamports", (None,lamports))
+    .change("post_balance", (None,post_balance))
+    .change("reward_type", (None,reward_type))
+    .change("commission", (None,commission))
+    .change("parent_id", (None,parent_id));
+}
+
+fn save_solana_block_transaction_status_meta_rewards(
+    block_number:u64,
+    transaction_index : usize,
+    rewoard_index:usize,
+    pubkey : String,
+    lamports : i64,
+    post_balance : u64,
+    reward_type : i32,
+    commission : String,
+    parent_id : String,
+    changes: &mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), format!("{}_{}_{}",block_number,transaction_index,rewoard_index));
+    changes.push_change_composite("solana_block_transaction_status_meta_pre_post_token_balances", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("reward_index", (None,rewoard_index as u64))
+    .change("pubkey", (None,pubkey))
+    .change("lamports", (None,lamports))
+    .change("post_balance", (None,post_balance))
+    .change("reward_type", (None,reward_type))
+    .change("commission", (None,commission))
+    .change("parent_id", (None,parent_id));
+}
+
+fn save_solana_block_transaction_status_meta_pre_post_token_balances(
+    block_number:u64,
+    transaction_index:usize,
+    pre_post_flag : i32,
+    balance_index:usize,
+    account_index : u32,
+    mint:String,
+    ui_token_amount_ui_amount:f64,
+    ui_token_amount_decimals:u32,
+    ui_token_amount_amount:String,
+    ui_token_amount_ui_amount_string:String,
+    owner:String,
+    program_id:String,
+    parent_table_id:String,
+    changes:&mut DatabaseChanges
+
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), format!("{}_{}_{}_{}",block_number,transaction_index,balance_index,pre_post_flag));
+    changes.push_change_composite("solana_block_transaction_status_meta_pre_post_token_balances", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("pre_post_flag", (None,pre_post_flag))
+    .change("balance_index", (None,balance_index as u64))
+    .change("account_index", (None,account_index))
+    .change("mint", (None,mint))
+    .change("ui_token_amount_ui_amount", (None,ui_token_amount_ui_amount.to_string()))
+    .change("ui_token_amount_decimals", (None,ui_token_amount_decimals))
+    .change("ui_token_amount_amount", (None,ui_token_amount_amount))
+    .change("ui_token_amount_ui_amount_string", (None,ui_token_amount_ui_amount_string))
+    .change("owner", (None,owner))
+    .change("program_id", (None,program_id))
+    .change("parent_id", (None,parent_table_id));
+
+}
+fn save_solana_block_transaction_status_meta_inner_instruction(
+    block_number : u64,
+    transaction_index:usize,
+    inner_instructions_index : usize,
+    inner_instruction_index:usize,
+    instruction_index : u32,
+    program_id_index : u32,
+    accounts : String,
+    instruction_data : String,
+    stack_height : u32,
+    parent_table_id : String,
+    changes : &mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), format!("{}_{}_{}_{}",block_number,transaction_index,inner_instructions_index,inner_instruction_index));
+    changes.push_change_composite("solana_block_transaction_status_meta_inner_instruction", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("inner_instructions_index", (None,inner_instructions_index as u64))
+    .change("inner_instruction_index", (None,inner_instruction_index as u64))
+    .change("instruction_index", (None,instruction_index ))
+    .change("program_id_index", (None,program_id_index))
+    .change("accounts", (None,accounts))
+    .change("instruction_data", (None,instruction_data))
+    .change("stack_height", (None,stack_height))
+    .change("parent_table_id", (None,parent_table_id));
+}
+
+
 fn save_solana_block_transaction_status_meta(
     block_number:u64,
     transaction_index:usize,
