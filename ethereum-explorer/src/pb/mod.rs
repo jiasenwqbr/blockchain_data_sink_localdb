@@ -21,4 +21,12 @@ pub mod eth {
             // @@protoc_insertion_point(eth.transaction.v1)
         }
     }
+
+    pub mod ethereum {
+        pub mod v2 {
+            include!("sf.ethereum.type.v2.rs");
+            // @@protoc_insertion_point(eth.event.v1)
+        }
+    }
+    
 }

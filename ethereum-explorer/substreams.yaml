@@ -63,6 +63,14 @@ modules:
       type: proto:eth.event.v1.Events
     doc: |
       `map_contract_events` allows you to get instructions executed by a certain contract, and returns the raw Event data model.
+  
+  - name: db_out
+    kind: map
+    initialBlock: 22136590
+    inputs:
+      - source: sf.ethereum.type.v2.Block
+    output:
+      type: proto:sf.substreams.sink.database.v1.DatabaseChanges
       
 
 params:
