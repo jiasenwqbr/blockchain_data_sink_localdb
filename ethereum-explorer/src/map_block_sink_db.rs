@@ -5,7 +5,6 @@ use substreams_database_change::pb::database::{table_change::Operation, Database
 use crate::pb::eth::ethereum::v2::Block;
 
 
-
 #[substreams::handlers::map]
 fn db_out(block: Block) -> Result<DatabaseChanges, substreams::errors::Error> {
     let data = serde_json::to_string_pretty(&block).expect("序列化失败");
@@ -18,5 +17,9 @@ fn db_out(block: Block) -> Result<DatabaseChanges, substreams::errors::Error> {
         .push_change_composite("eth_block", composite_key, 1, Operation::Create)
         .change("data", (None, data));
 
+    // 
+
     Ok(database_changes)
 }
+
+

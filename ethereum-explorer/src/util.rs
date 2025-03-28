@@ -6,3 +6,12 @@ pub fn is_address_valid(address: &String) -> bool {
 
     true
 }
+
+
+
+// pub fn bytes_to_eth(bytes: &[u8; 20]) -> String {
+//     // 转换为十六进制字符串
+//     let hex_str = hex::encode(bytes);
+//     // 添加 0x 前缀
+//     format!("{}", hex_str)
+// }
