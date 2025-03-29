@@ -10,7 +10,7 @@ imports:
 network: 'mainnet'
 
 sink:
-  module: main:db_out
+  module: main:postgres_out
   type: sf.substreams.sink.sql.v1.Service
   config:
     schema: "../schema.sql"

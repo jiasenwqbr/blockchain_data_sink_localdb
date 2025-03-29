@@ -64,9 +64,9 @@ modules:
     doc: |
       `map_contract_events` allows you to get instructions executed by a certain contract, and returns the raw Event data model.
   
-  - name: db_out
+  - name: postgres_out
     kind: map
-    initialBlock: 22136590
+    initialBlock: 22151475
     inputs:
       - source: sf.ethereum.type.v2.Block
     output:

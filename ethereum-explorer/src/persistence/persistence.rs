@@ -1,9 +1,6 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, i32};
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use substreams_ethereum::pb::eth::v2::Block;
-
-use crate::pb::eth::transaction;
-
 
 pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges) {
     let block_number = block.number;
@@ -166,7 +163,7 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
         let transaction_type = transaction.r#type;
         let max_fee_per_gas = hex::encode(transaction.max_fee_per_gas.clone().unwrap().bytes);
         let max_priority_fee_per_gas = hex::encode(transaction.max_priority_fee_per_gas.clone().unwrap().bytes);
-        let transaction_index = transaction.index;
+        let transaction_ind = transaction.index;
         let transaction_hash = hex::encode(&transaction.hash);
         let transaction_from = hex::encode(&transaction.from);
         let return_data = hex::encode(&transaction.return_data);
@@ -175,7 +172,11 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
         let end_ordinal = transaction.end_ordinal;
         let transaction_status = transaction.status;
         let blob_gas = transaction.blob_gas.unwrap_or_default();
-        let blob_gas_fee_cap = hex::encode(transaction.blob_gas_fee_cap.clone().unwrap().bytes);
+        let blob_gas_fee_cap: String = match transaction.blob_gas_fee_cap.clone() {
+            Some(val) => hex::encode(val.bytes),None => String::new(),
+        };
+
+        // hex::encode(transaction.blob_gas_fee_cap.clone().unwrap_or_default().bytes);
         
         save_ethereum_block_transaction(
             id,
@@ -193,7 +194,7 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
             transaction_type,
             max_fee_per_gas,
             max_priority_fee_per_gas,
-            transaction_index,
+            transaction_ind,
             transaction_hash,
             transaction_from,
             return_data,
@@ -250,25 +251,690 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
         // block transaction receipt
         let receipt = &transaction.receipt;
         match receipt {
-            Some(transactionReceipt) => {
-                let state_root = hex::encode(&transactionReceipt.state_root);
-                let cumulative_gas_used = transactionReceipt.cumulative_gas_used;
-                let logs_bloom = hex::encode(&transactionReceipt.logs_bloom);
-                let blob_gas_used = transactionReceipt.blob_gas_used.unwrap_or_default();
-                let blob_gas_price = hex::encode(transactionReceipt.blob_gas_price.clone().unwrap_or_default().bytes);
+            Some(transaction_receipt) => {
+                let state_root = hex::encode(&transaction_receipt.state_root);
+                let cumulative_gas_used = transaction_receipt.cumulative_gas_used;
+                let logs_bloom = hex::encode(&transaction_receipt.logs_bloom);
+                let blob_gas_used = transaction_receipt.blob_gas_used.unwrap_or_default();
+                let blob_gas_price = hex::encode(transaction_receipt.blob_gas_price.clone().unwrap_or_default().bytes);
+                let receipt_id = format!("{}_{}",block_number,transaction_index);
+                let parent_id: String = block_number.to_string();
+                let parent_table = "ethereum_block_transaction".to_string();
+                save_ethereum_block_transaction_receipt(
+                    receipt_id,
+                    block_number,
+                    parent_id,
+                    parent_table,
+                    transaction_index,
+                    state_root,
+                    cumulative_gas_used,
+                    logs_bloom,
+                    blob_gas_used,
+                    blob_gas_price,
+                    database_changes
+                );
+
+                let logs = &transaction_receipt.logs;
+                for (log_index, log) in logs.iter().enumerate(){
+                    let address = hex::encode(&log.address);
+                    
+                    let data = hex::encode(&log.data);
+                    let index = &log.index;
+                    let block_index = &log.block_index;
+                    let ordinal = &log.ordinal;
+                    let id = format!("{}_{}_{}",block_number,transaction_index,log_index);
+                    let parent_id: String = format!("{}_{}",block_number,transaction_index);
+                    let parent_table = "ethereum_block_transaction_receipt".to_string();
+                    save_ethereum_block_transaction_receipt_logs(
+                        id,
+                        block_number,
+                        parent_id,
+                        parent_table,
+                        log_index,
+                        address,
+                        data,
+                        index,
+                        block_index,
+                        ordinal,
+                        database_changes
+                    );
+
+                    let topics = &log.topics;
+                    for (topic_index,topic) in topics.iter().enumerate(){
+                        let tp = hex::encode(topic);
+                        
+                        let id = format!("{}_{}_{}",block_number,transaction_index,log_index);
+                        let parent_id: String = format!("{}_{}_{}_{}",block_number,transaction_index,log_index,topic_index);
+                        let parent_table = "ethereum_block_transaction_receipt_logs".to_string();
+
+                        save_ethereum_block_transaction_receipt_logs_topics(
+                            id,
+                            block_number,
+                            parent_id,
+                            parent_table,
+                            log_index,
+                            topic_index,
+                            tp,
+                            database_changes
+                        );
+
+                    }
+                }
+
 
             },
             None => {}
         }
+    }
 
+    // block balancechanges
+    let balance_changes = block.balance_changes;
+    for (balance_change_index,balance_change) in balance_changes.iter().enumerate(){
+        let id = format!("{}_{}",block_number,balance_change_index);
+        let parent_id = format!("{}",block_number);
+        let parent_table = "ethereum_block".to_string();
+        let address = hex::encode(&balance_change.address);
+        let old_value = hex::encode(&balance_change.old_value.clone().unwrap().bytes);
+        let new_value = hex::encode(&balance_change.new_value.clone().unwrap_or_default().bytes);
+        let reason = &balance_change.reason;
+        let ordinal = &balance_change.ordinal;
+        save_ethereum_block_balance_changes(
+            id,
+            block_number,
+            parent_id,
+            parent_table,
+            address,
+            old_value,
+            new_value,
+            reason,
+            ordinal,
+            database_changes
+        );
+    }
+    // block code_changes
+    let code_changes = block.code_changes;
+    for (code_change_index,code_change) in code_changes.iter().enumerate(){
+        let id = format!("{}_{}",block_number,code_change_index);
+        let parent_id = format!("{}",block_number);
+        let parent_table = "ethereum_block".to_string();
+        let address = hex::encode(&code_change.address);
+        let old_code = hex::encode(&code_change.old_code);
+        let old_hash = hex::encode(&code_change.old_hash);
+        let new_code = hex::encode(&code_change.new_code);
+        let new_hash = hex::encode(&code_change.new_hash);
+        let ordinal = &code_change.ordinal;
 
+        save_ethereum_block_code_changes(
+            id,
+            block_number,
+            parent_id,
+            parent_table,
+            address,
+            old_code,
+            old_hash,
+            new_code,
+            new_hash,
+            ordinal,
+            database_changes
+        );
+    }
 
+    // block system_calls[]
+    let system_calls = block.system_calls;
+    for (call_index,system_call) in system_calls.iter().enumerate(){
+        let id = format!("{}_{}",block_number,call_index);
+        let parent_id = format!("{}",block_number);
+        let parent_table = "ethereum_block".to_string();
+        let index = system_call.index;
+        let parent_index = system_call.parent_index;
+        let depth = system_call.depth;
+        let call_type = system_call.call_type;
+        let caller = hex::encode(&system_call.caller);
+        let address = hex::encode(&system_call.address);
+        let system_call_value = hex::encode(&system_call.value.clone().unwrap().bytes);
+        let gas_limit = system_call.gas_limit;
+        let gas_consumed = system_call.gas_consumed;
+        let return_data = hex::encode(&system_call.return_data);
+        let input = hex::encode(&system_call.input);
+        let executed_code = system_call.executed_code;
+        let suicide = system_call.suicide;
+        let status_failed = system_call.status_failed;
+        let status_reverted = system_call.status_reverted;
+        let failure_reason: &String = &system_call.failure_reason;
+        let state_reverted = system_call.state_reverted;
+        let begin_ordinal = system_call.begin_ordinal;
+        let end_ordinal = system_call.end_ordinal;
+
+        save_ethereum_block_system_calls(
+            id,
+            block_number,
+            parent_id,
+            parent_table,
+            call_index,
+            index,
+            parent_index,
+            depth,
+            call_type,
+            caller,
+            address,
+            system_call_value,
+            gas_limit,
+            gas_consumed,
+            return_data,
+            input,
+            executed_code,
+            suicide,
+            status_failed,
+            status_reverted,
+            failure_reason,
+            state_reverted,
+            begin_ordinal,
+            end_ordinal,
+            database_changes
+        );
+
+        // block system_calls storage_change
+        let storage_changes = &system_call.storage_changes;
+        for (storage_change_index, storage_change) in storage_changes.iter().enumerate(){
+            let id = format!("{}_{}_{}",block_number,call_index,storage_change_index);
+            let parent_id = format!("{}_{}",block_number,call_index);
+            let parent_table = "ethereum_block_system_calls".to_string();
+            let address = hex::encode(&storage_change.address);
+            let key = hex::encode(&storage_change.key);
+            let old_value = hex::encode(&storage_change.old_value);
+            let new_value  = hex::encode(&storage_change.new_value);
+            let ordinal = storage_change.ordinal;
+            save_ethereum_block_system_calls_storage_changes(
+                id,
+                block_number,
+                parent_id,
+                parent_table,
+                storage_change_index,
+                address,
+                key,
+                old_value,
+                new_value,
+                ordinal,
+                database_changes
+            );
+
+        }
+
+        // block system_calls balance_changes 
+        let balance_changes = &system_call.balance_changes;
+        for (balance_change_index,balance_change) in balance_changes.iter().enumerate() {
+            let id = format!("{}_{}_{}",block_number,call_index,balance_change_index);
+            let parent_id = format!("{}_{}",block_number,call_index);
+            let parent_table = "ethereum_block_system_calls".to_string();
+            let address = hex::encode(&balance_change.address);
+            let old_value = hex::encode(&balance_change.old_value.clone().unwrap().bytes);
+            let new_value  = hex::encode(&balance_change.new_value.clone().unwrap().bytes);
+            let ordinal = balance_change.ordinal;
+            save_ethereum_block_system_calls_balance_changes(
+                id,
+                block_number,
+                parent_id,
+                parent_table,
+                balance_change_index,
+                address,
+                old_value,
+                new_value,
+                ordinal,
+                database_changes
+            );
+
+        }
+
+        // block system_calls nonce_changes
+        let nonce_changes = &system_call.nonce_changes;
+        for (nonce_change_index,nonce_change) in nonce_changes.iter().enumerate(){
+            let id = format!("{}_{}_{}",block_number,call_index,nonce_change_index);
+            let parent_id = format!("{}_{}",block_number,call_index);
+            let parent_table = "ethereum_block_system_calls".to_string();
+            let address = hex::encode(&nonce_change.address);
+            let old_value = nonce_change.old_value;
+            let new_value  = nonce_change.new_value;
+            let ordinal = nonce_change.ordinal;
+
+            save_ethereum_block_system_calls_nonce_changes(
+                id,
+                block_number,
+                parent_id,
+                parent_table,
+                nonce_change_index,
+                address,
+                old_value,
+                new_value,
+                ordinal,
+                database_changes
+            );
+        }
+
+        // block system_calls code_changes
+        let code_changes = &system_call.code_changes;
+        for (code_change_index , code_change)  in code_changes.iter().enumerate(){
+            let id = format!("{}_{}_{}",block_number,call_index,code_change_index);
+            let parent_id = format!("{}_{}",block_number,call_index);
+            let parent_table = "ethereum_block_system_calls".to_string();
+            let address = hex::encode(&code_change.address);
+            let old_code = hex::encode(&code_change.old_code);
+            let new_code  = hex::encode(&code_change.new_code);
+            let old_hash = hex::encode(&code_change.old_code);
+            let new_hash = hex::encode(&code_change.new_hash);
+            let ordinal = code_change.ordinal;
+
+            save_ethereum_block_system_calls_code_changes(
+                id,
+                block_number,
+                parent_id,
+                parent_table,
+                code_change_index,
+                address,
+                old_code,
+                new_code,
+                old_hash,
+                new_hash,
+                ordinal,
+                database_changes
+            );
+
+        }
+        // block system_calls gas_changes
+        let gas_changes = &system_call.gas_changes;
+        for (gas_change_index , gas_change) in gas_changes.iter().enumerate(){
+            let id = format!("{}_{}_{}",block_number,call_index,gas_change_index);
+            let parent_id = format!("{}_{}",block_number,call_index);
+            let parent_table = "ethereum_block_system_calls".to_string();
+            let old_value = gas_change.old_value;
+            let new_value  = gas_change.new_value;
+            let reason = gas_change.reason;
+            let ordinal = gas_change.ordinal;
+
+            save_ethereum_block_system_calls_gas_changes(
+                id,
+                block_number,
+                parent_id,
+                parent_table,
+                gas_change_index,
+                old_value,
+                new_value,
+                reason,
+                ordinal,
+                database_changes
+            );
+        }
+        // block system_calls account_creations
+        let account_creations = &system_call.account_creations;
+        for (account_creation_index , account_creation) in account_creations.iter().enumerate(){
+            let id = format!("{}_{}_{}",block_number,call_index,account_creation_index);
+            let parent_id = format!("{}_{}",block_number,call_index);
+            let parent_table = "ethereum_block_system_calls".to_string();
+            let account = hex::encode(&account_creation.account);
+            let ordinal  = account_creation.ordinal;
+
+            save_ethereum_block_system_calls_account_creations(
+                id,
+                block_number,
+                parent_id,
+                parent_table,
+                account_creation_index, 
+                account,
+                ordinal,
+                database_changes
+            );
+        }
 
 
     }
 
 
+
+
 }
+
+fn save_ethereum_block_system_calls_account_creations(
+    id: String,
+    block_number:u64,
+    parent_id:String,
+    parent_table:String,
+    change_index: usize,
+    account : String,
+    ordinal : u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls_account_creations", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("change_index", (None, change_index as u64))
+        .change("account", (None,account))
+        .change("ordinal", (None,ordinal)) ;
+}
+
+fn save_ethereum_block_system_calls_gas_changes(
+    id: String,
+    block_number:u64,
+    parent_id:String,
+    parent_table:String,
+    change_index: usize,
+    old_value:u64,
+    new_value:u64,
+    reason:i32,
+    ordinal:u64,
+    changes:&mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls_gas_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("change_index", (None, change_index as u64)) // usize -> u64
+        .change("old_value", (None, old_value))
+        .change("new_value", (None, new_value))
+        .change("reason", (None, reason))
+        .change("ordinal", (None, ordinal));
+}
+
+fn save_ethereum_block_system_calls_code_changes(
+    id: String,
+    block_number:u64,
+    parent_id:String,
+    parent_table:String,
+    code_change_index: usize,
+    address:String,
+    old_code:String,
+    new_code:String,
+    old_hash:String,
+    new_hash:String,
+    ordinal : u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls_code_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("change_index", (None, code_change_index as u64)) // usize -> u64
+        .change("address", (None, address))
+        .change("old_code", (None, old_code))
+        .change("new_code", (None, new_code))
+        .change("old_hash", (None, old_hash))
+        .change("new_hash", (None, new_hash))
+        .change("ordinal", (None, ordinal));
+}
+
+
+fn save_ethereum_block_system_calls_nonce_changes(
+    id: String,
+    block_number:u64,
+    parent_id:String,
+    parent_table:String,
+    balance_change_index: usize,
+    address : String,
+    old_value : u64,
+    new_value : u64,
+    ordinal : u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls_nonce_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("change_index", (None, balance_change_index as u64)) // usize -> u64
+        .change("address", (None, address))
+        .change("old_value", (None, old_value))
+        .change("new_value", (None, new_value))
+        .change("ordinal", (None, ordinal));
+}
+
+fn save_ethereum_block_system_calls_balance_changes(
+    id: String,
+    block_number:u64,
+    parent_id:String,
+    parent_table:String,
+    balance_change_index: usize,
+    address : String,
+    old_value : String,
+    new_value : String,
+    ordinal : u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls_balance_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("change_index", (None, balance_change_index as u64)) // usize -> u64
+        .change("address", (None, address))
+        .change("old_value", (None, old_value))
+        .change("new_value", (None, new_value))
+        .change("ordinal", (None, ordinal));
+}
+
+fn save_ethereum_block_system_calls_storage_changes(
+    id : String,
+    block_number : u64,
+    parent_id : String,
+    parent_table : String,
+    storage_change_index : usize,
+    address : String,
+    key : String,
+    old_value :String,
+    new_value : String,
+    ordinal : u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls_storage_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("change_index", (None, storage_change_index as u64)) // usize -> u64
+        .change("address", (None, address))
+        .change("key", (None, key))
+        .change("old_value", (None, old_value))
+        .change("new_value", (None, new_value))
+        .change("ordinal", (None, ordinal));
+}
+
+fn save_ethereum_block_system_calls(
+    id :String,
+    block_number: u64,
+    parent_id: String,
+    parent_table : String,
+    call_index : usize,
+    index : u32,
+    parent_index:u32,
+    depth:u32,
+    call_type:i32,
+    caller:String,
+    address:String,
+    system_call_value:String,
+    gas_limit : u64,
+    gas_consumed:u64,
+    return_data:String,
+    input:String,
+    executed_code:bool,
+    suicide:bool,
+    status_failed:bool,
+    status_reverted:bool,
+    failure_reason:&String,
+    state_reverted:bool,
+    begin_ordinal:u64,
+    end_ordinal:u64,
+    changes:&mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_system_calls", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("call_index", (None, call_index as u64)) // usize -> u64
+        .change("index", (None, index))
+        .change("parent_index", (None, parent_index))
+        .change("depth", (None, depth))
+        .change("call_type", (None, call_type))
+        .change("caller", (None, caller))
+        .change("address", (None, address))
+        .change("system_call_value", (None, system_call_value))
+        .change("gas_limit", (None, gas_limit))
+        .change("gas_consumed", (None, gas_consumed))
+        .change("return_data", (None, return_data))
+        .change("input", (None, input))
+        .change("executed_code", (None, executed_code))
+        .change("suicide", (None, suicide))
+        .change("status_failed", (None, status_failed))
+        .change("status_reverted", (None, status_reverted))
+        .change("failure_reason", (None, failure_reason.clone())) // 解引用并克隆
+        .change("state_reverted", (None, state_reverted))
+        .change("begin_ordinal", (None, begin_ordinal))
+        .change("end_ordinal", (None, end_ordinal));
+}
+
+
+
+
+fn save_ethereum_block_code_changes(
+    id : String,
+    block_number : u64,
+    parent_id : String,
+    parent_table : String,
+    address : String,
+    old_code : String,
+    old_hash : String,
+    new_code : String,
+    new_hash : String,
+    ordinal : &u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_code_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("address", (None,address))
+        .change("old_hash", (None,old_hash ))
+        .change("old_code", (None,old_code))
+        .change("new_code", (None,new_code))
+        .change("new_hash", (None,new_hash))
+        .change("ordinal", (None,*ordinal));
+}
+
+fn save_ethereum_block_balance_changes(
+    id : String,
+    block_number:u64,
+    parent_id : String,
+    parent_table : String,
+    address : String,
+    old_value : String,
+    new_value : String,
+    reason : &i32,
+    ordinal : &u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_balance_changes", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("address", (None,address))
+        .change("old_value", (None,old_value ))
+        .change("new_value", (None,new_value))
+        .change("reason", (None,*reason))
+        .change("ordinal", (None,*ordinal));
+}
+
+
+
+fn save_ethereum_block_transaction_receipt_logs_topics(
+    id : String,
+    block_number : u64,
+    parent_id : String,
+    parent_table:String,
+    log_index:usize,
+    topic_index:usize,
+    topic : String,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_transaction_receipt_logs_topics", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("log_index", (None,log_index as u64))
+        .change("topic_index", (None,topic_index as u64))
+        .change("topic", (None,topic));
+}
+
+fn save_ethereum_block_transaction_receipt_logs(
+    id:String,
+    block_number:u64,
+    parent_id: String,
+    parent_table : String,
+    log_index:usize,
+    address:String,
+    data : String,
+    index : &u32,
+    block_index : &u32,
+    ordinal : &u64,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_transaction_receipt_logs", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("log_index", (None,log_index as u64))
+        .change("address", (None,address))
+        .change("data", (None,data))
+        .change("index", (None, *index)) 
+        .change("block_index", (None, *block_index))
+        .change("ordinal", (None, *ordinal));
+}
+
+
+fn save_ethereum_block_transaction_receipt(
+    id : String,
+    block_number : u64,
+    parent_id : String,
+    parent_table : String,
+    transaction_index : usize,
+    state_root : String,
+    cumulative_gas_used : u64,
+    logs_bloom : String,
+    blob_gas_used : u64,
+    blob_gas_price : String,
+    changes : &mut DatabaseChanges
+){
+    let mut keys: HashMap<String, String> = HashMap::new();
+    keys.insert("id".to_string(), id);
+    changes.push_change_composite("ethereum_block_transaction_receipt", keys, 1, Operation::Create)
+        .change("block_number", (None,block_number))
+        .change("parent_id", (None, parent_id))
+        .change("parent_table", (None, parent_table))
+        .change("transaction_index", (None,transaction_index as u64))
+        .change("state_root", (None,state_root))
+        .change("cumulative_gas_used", (None,cumulative_gas_used))
+        .change("logs_bloom", (None,logs_bloom))
+        .change("blob_gas_used", (None,blob_gas_used))
+        .change("blob_gas_price", (None,blob_gas_price));
+
+}
+
+
 
 fn save_ethereum_block_transaction_access_list_storage_keys(
     id : String,
@@ -282,7 +948,7 @@ fn save_ethereum_block_transaction_access_list_storage_keys(
 ){
     let mut keys: HashMap<String, String> = HashMap::new();
     keys.insert("id".to_string(), id);
-    changes.push_change_composite("ethereum_block_header", keys, 1, Operation::Create)
+    changes.push_change_composite("ethereum_block_transaction_access_list_storage_keys", keys, 1, Operation::Create)
     .change("block_number", (None,block_number))
     .change("parent_id", (None, parent_id))
     .change("parent_table", (None, parent_table))
@@ -303,7 +969,7 @@ fn save_ethereum_block_transaction_access_list(
 ){
     let mut keys: HashMap<String, String> = HashMap::new();
     keys.insert("id".to_string(), id);
-    changes.push_change_composite("ethereum_block_header", keys, 1, Operation::Create)
+    changes.push_change_composite("ethereum_block_transaction_access_list", keys, 1, Operation::Create)
     .change("block_number", (None,block_number))
     .change("parent_id", (None, parent_id))
     .change("parent_table", (None, parent_table))
@@ -463,7 +1129,7 @@ fn save_ethereum_block_transaction(
 ){
     let mut keys: HashMap<String, String> = HashMap::new();
     keys.insert("id".to_string(), id);
-    changes.push_change_composite("ethereum_block_uncles", keys, 1, Operation::Create)
+    changes.push_change_composite("ethereum_block_transaction", keys, 1, Operation::Create)
     .change("block_number", (None,block_number))
     .change("parent_id", (None, parent_id))
         .change("parent_table", (None, parent_table))
@@ -490,6 +1156,5 @@ fn save_ethereum_block_transaction(
         .change("transaction_status", (None, transaction_status))
         .change("blob_gas", (None, blob_gas))
         .change("blob_gas_fee_cap", (None, blob_gas_fee_cap));
-    ;
     
 }
