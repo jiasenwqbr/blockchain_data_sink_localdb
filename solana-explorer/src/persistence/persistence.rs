@@ -1,22 +1,30 @@
-use std::{collections::HashMap, fmt::format, usize};
+use std::{collections::HashMap, usize};
 
 use crate::pb::sf::solana::r#type::v1::Block;
-use substreams_database_change::{change, pb::database::{table_change::Operation, DatabaseChanges}};
+use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use substreams_solana::base58;
 pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChanges) {
-    let json = serde_json::to_string_pretty(&block).expect("序列化失败");
-    let block_number = block.block_height.unwrap_or_default().block_height;
-    let mut composite_key: HashMap<String, String> = HashMap::new();
-    composite_key.insert("id".to_string(), block_number.to_string());
-    database_changes
-        .push_change_composite("solana_block", composite_key, 1, Operation::Create)
-        .change("data", (None, json));
+    // let json = serde_json::to_string_pretty(&block).expect("序列化失败");
+    // let block_number = block.block_height.unwrap_or_default().block_height;
+    // let mut composite_key: HashMap<String, String> = HashMap::new();
+    // composite_key.insert("id".to_string(), block_number.to_string());
+    // database_changes
+    //     .push_change_composite("solana_block", composite_key, 1, Operation::Create)
+    //     .change("data", (None, json));
+
+
     let block_hash = block.blockhash;
     let previous_blockhash = block.previous_blockhash;
     let parent_slot = block.parent_slot;
-    let block_height = block.block_height.unwrap_or_default().block_height;
+    let block_height = match  block.block_height {
+        Some(val) => val.block_height,
+        None => 0
+    };
     let block_number = block.slot;
-    let block_time: i64 = block.block_time.unwrap_or_default().timestamp;
+    let block_time: i64 = match block.block_time {
+        Some(val) => val.timestamp,
+        None => 0
+    };
     // head
     save_solana_block_head(
         block_number,
@@ -104,12 +112,23 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                 let inner_instructions_none = meta.inner_instructions_none;
                 let log_messages_none: bool = meta.log_messages_none;
                 let return_data_none = meta.return_data_none;
-                let return_data_program_id = base58::encode(meta.return_data.clone().unwrap_or_default().program_id);
-                let return_data_data = base58::encode(meta.return_data.clone().unwrap_or_default().data);
+                // let return_data_program_id = base58::encode(meta.return_data.clone().unwrap_or_default().program_id);
+                let return_data_program_id = match  &meta.return_data {
+                    Some(val) => base58::encode(&val.program_id),
+                    None => String::new()
+                    
+                };
+                // let return_data_data = base58::encode(meta.return_data.clone().unwrap_or_default().data);
+
+                let return_data_data = match &meta.return_data {
+                    Some(val) => base58::encode(&val.data),
+                    None => String::new()
+                    
+                };
                 let parent_table_id = format!("{}",block_number);
                 save_solana_block_transaction_status_meta(block_number,index,fee,inner_instructions_none,log_messages_none,return_data_none,return_data_program_id,return_data_data,parent_table_id,database_changes);
                 // block TransactionStatusMeta  InnerInstructions
-                let inner_instructions = &meta.inner_instructions;
+                let inner_instructions: &Vec<crate::pb::sf::solana::r#type::v1::InnerInstructions> = &meta.inner_instructions;
                 for (inner_instructions_index,ii) in inner_instructions.iter().enumerate(){
                     let ii_index = ii.index;
                     for (inner_instruction_index ,instruction) in ii.instructions.iter().enumerate(){
@@ -141,10 +160,26 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                     let mint = token_balance.mint.clone();
                     let owner = token_balance.owner.clone();
                     let program_id = token_balance.program_id.clone();
-                    let ui_token_amount_ui_amount = token_balance.ui_token_amount.clone().unwrap().ui_amount;
-                    let ui_token_amount_decimals = token_balance.ui_token_amount.clone().unwrap().decimals;
-                    let ui_token_amount_amount = token_balance.ui_token_amount.clone().unwrap().amount;
-                    let ui_token_amount_ui_amount_string = token_balance.ui_token_amount.clone().unwrap().ui_amount_string;
+                    // let ui_token_amount_ui_amount = token_balance.ui_token_amount.clone().unwrap().ui_amount;
+                    let ui_token_amount_ui_amount = match  &token_balance.ui_token_amount {
+                        Some(val) => val.ui_amount,
+                        None => 0.0
+                    };
+                    // let ui_token_amount_decimals = token_balance.ui_token_amount.clone().unwrap().decimals;
+                    let ui_token_amount_decimals = match  &token_balance.ui_token_amount{
+                        Some(val) => val.decimals,
+                        None => 0
+                    };
+                    // let ui_token_amount_amount = token_balance.ui_token_amount.clone().unwrap().amount;
+                    let ui_token_amount_amount = match &token_balance.ui_token_amount {
+                        Some(val) => val.amount.clone(),
+                        None => String::new()
+                    };
+                    // let ui_token_amount_ui_amount_string = token_balance.ui_token_amount.clone().unwrap().ui_amount_string;
+                    let ui_token_amount_ui_amount_string = match &token_balance.ui_token_amount {
+                        Some(val) => val.ui_amount_string.clone(),
+                        None => String::new()
+                    };
                     let flag = 0;
                     let parent_table_id = format!("{}_{}",block_number,index);
                     save_solana_block_transaction_status_meta_pre_post_token_balances(
@@ -172,12 +207,28 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                     let mint = token_balance.mint.clone();
                     let owner = token_balance.owner.clone();
                     let program_id = token_balance.program_id.clone();
-                    let ui_token_amount_ui_amount = token_balance.ui_token_amount.clone().unwrap().ui_amount;
-                    let ui_token_amount_decimals = token_balance.ui_token_amount.clone().unwrap().decimals;
-                    let ui_token_amount_amount = token_balance.ui_token_amount.clone().unwrap().amount;
-                    let ui_token_amount_ui_amount_string = token_balance.ui_token_amount.clone().unwrap().ui_amount_string;
+                    //let ui_token_amount_ui_amount = token_balance.ui_token_amount.clone().unwrap().ui_amount;
+                    let ui_token_amount_ui_amount = match &token_balance.ui_token_amount {
+                        Some(val) => val.ui_amount,
+                        None => 0.0
+                    };
+                    // let ui_token_amount_decimals = token_balance.ui_token_amount.clone().unwrap().decimals;
+                    let ui_token_amount_decimals = match  &token_balance.ui_token_amount {
+                        Some(val) => val.decimals,
+                        None  => 0
+                    };
+                    //let ui_token_amount_amount = token_balance.ui_token_amount.clone().unwrap().amount;
+                    let ui_token_amount_amount = match &token_balance.ui_token_amount {
+                        Some(val) => val.amount.clone(),
+                        None => String::new()
+                    };
+                    //let ui_token_amount_ui_amount_string = token_balance.ui_token_amount.clone().unwrap().ui_amount_string;
+                    let ui_token_amount_ui_amount_string = match  &token_balance.ui_token_amount {
+                        Some(val) => val.ui_amount_string.clone(),
+                        None => String::new()
+                    };
                     let flag = 1;
-                    let parent_table_id = format!("{}_{}",block_number,index);
+                    let parent_table_id: String = format!("{}_{}",block_number,index);
                     save_solana_block_transaction_status_meta_pre_post_token_balances(
                         block_number,
                         index,

@@ -31,7 +31,7 @@ create table IF NOT EXISTS ethereum_block_header (
     mix_hash text,
     nonce bigint,
     header_hash text,
-    base_fee_per_gas bigint,
+    base_fee_per_gas text,
     withdrawals_root text,
     tx_dependency text,
     blob_gas_used bigint,
@@ -113,7 +113,7 @@ create table IF NOT EXISTS ethereum_block_transaction_access_list (
 );
 
 --- block transaction access_list storagekeys   id = block_number+transaction_index+access_index+key_index
-create table IF NOT EXISTS ethereum_block_transaction_access_list (
+create table IF NOT EXISTS ethereum_block_transaction_access_list_storage_keys (
     id text primary key,
     block_number bigint,
     parent_id text,
@@ -129,8 +129,10 @@ create table IF NOT EXISTS ethereum_block_transaction_receipt (
     id text primary key,
     block_number bigint,
     parent_id text,
+    transaction_index bigint,
     parent_table text,
     state_root text,
+
     cumulative_gas_used bigint,
     logs_bloom text,
     blob_gas_used bigint,
@@ -146,6 +148,8 @@ create table IF NOT EXISTS ethereum_block_transaction_receipt_logs (
     parent_id text,
     parent_table text,
     log_index bigint,
+    address text,
+
     data text,
     index bigint,
     block_index bigint,
@@ -178,6 +182,21 @@ create table IF NOT EXISTS ethereum_block_code_changes (
     new_hash text,
     ordinal bigint
 );
+
+-- block balance_changes         id = blocknumber+balance_changes_index
+create table IF NOT EXISTS ethereum_block_balance_changes (
+    id text primary key,
+    block_number bigint,
+    parent_id text,
+    parent_table text,
+    change_index bigint,
+    address text,
+    old_value text,
+    new_value text,
+    reason text,
+    ordinal bigint
+);
+
 
 
 -- block system_calls id = blocknumber+system_calls_index

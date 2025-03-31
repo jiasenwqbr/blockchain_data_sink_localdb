@@ -1,4 +1,5 @@
 use std::{collections::HashMap, i32};
+use num_bigint::BigInt;
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use substreams_ethereum::pb::eth::v2::Block;
 
@@ -30,8 +31,14 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
             let transactions_root = hex::encode(head.transactions_root);
             let receipt_root = hex::encode(head.receipt_root);
             let logs_bloom = hex::encode(head.logs_bloom);
-            let difficulty = hex::encode(head.difficulty.unwrap().bytes);
-            let total_difficulty = hex::encode(head.total_difficulty.unwrap_or_default().bytes);
+            let difficulty = match head.total_difficulty.clone() {
+                Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+            };
+            //hex::encode(head.difficulty.unwrap().bytes);
+            let total_difficulty = match head.total_difficulty.clone() {
+                Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+            };
+            // hex::encode(head.total_difficulty.unwrap_or_default().bytes);
             let header_number = head.number;
             let gas_limit = head.gas_limit;
             let gas_used = head.gas_used;
@@ -41,7 +48,11 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
             let mix_hash = hex::encode(head.mix_hash);
             let nonce = head.nonce;
             let header_hash = hex::encode(head.hash);
-            let base_fee_per_gas = hex::encode(head.base_fee_per_gas.unwrap_or_default().bytes);
+            let base_fee_per_gas = match  head.base_fee_per_gas.clone() {
+                Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+            };
+            
+            // hex::encode(head.base_fee_per_gas.unwrap_or_default().bytes);
             let withdrawals_root = hex::encode(head.withdrawals_root);
             let blob_gas_used = head.blob_gas_used.unwrap_or_default();
             let excess_blob_gas = head.excess_blob_gas.unwrap_or_default();
@@ -152,17 +163,25 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
         let parent_table = "ethereum_block".to_string();
         let transaction_to = hex::encode(&transaction.to);
         let nonce = transaction.nonce;
-        let gas_price = hex::encode(transaction.gas_price.clone().unwrap().bytes);
+        let gas_price = match transaction.gas_price.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
         let gas_limit = transaction.gas_limit;
-        let transaction_value = hex::encode(transaction.value.clone().unwrap().bytes);
+        let transaction_value = match transaction.value.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
         let input = hex::encode( &transaction.input);
         let v = hex::encode(&transaction.v);
         let r = hex::encode(&transaction.r);
         let s = hex::encode(&transaction.s);
         let gas_used = transaction.gas_used;
         let transaction_type = transaction.r#type;
-        let max_fee_per_gas = hex::encode(transaction.max_fee_per_gas.clone().unwrap().bytes);
-        let max_priority_fee_per_gas = hex::encode(transaction.max_priority_fee_per_gas.clone().unwrap().bytes);
+        let max_fee_per_gas = match transaction.max_fee_per_gas.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
+        let max_priority_fee_per_gas = match transaction.max_priority_fee_per_gas.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
         let transaction_ind = transaction.index;
         let transaction_hash = hex::encode(&transaction.hash);
         let transaction_from = hex::encode(&transaction.from);
@@ -256,7 +275,9 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
                 let cumulative_gas_used = transaction_receipt.cumulative_gas_used;
                 let logs_bloom = hex::encode(&transaction_receipt.logs_bloom);
                 let blob_gas_used = transaction_receipt.blob_gas_used.unwrap_or_default();
-                let blob_gas_price = hex::encode(transaction_receipt.blob_gas_price.clone().unwrap_or_default().bytes);
+                let blob_gas_price = match transaction_receipt.blob_gas_price.clone() {
+                    Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+                };
                 let receipt_id = format!("{}_{}",block_number,transaction_index);
                 let parent_id: String = block_number.to_string();
                 let parent_table = "ethereum_block_transaction".to_string();
@@ -303,8 +324,8 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
                     for (topic_index,topic) in topics.iter().enumerate(){
                         let tp = hex::encode(topic);
                         
-                        let id = format!("{}_{}_{}",block_number,transaction_index,log_index);
-                        let parent_id: String = format!("{}_{}_{}_{}",block_number,transaction_index,log_index,topic_index);
+                        let id = format!("{}_{}_{}_{}",block_number,transaction_index,log_index,topic_index);
+                        let parent_id: String = format!("{}_{}_{}",block_number,transaction_index,log_index);
                         let parent_table = "ethereum_block_transaction_receipt_logs".to_string();
 
                         save_ethereum_block_transaction_receipt_logs_topics(
@@ -334,8 +355,12 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
         let parent_id = format!("{}",block_number);
         let parent_table = "ethereum_block".to_string();
         let address = hex::encode(&balance_change.address);
-        let old_value = hex::encode(&balance_change.old_value.clone().unwrap().bytes);
-        let new_value = hex::encode(&balance_change.new_value.clone().unwrap_or_default().bytes);
+        let old_value = match &balance_change.old_value.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
+        let new_value = match &balance_change.new_value.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
         let reason = &balance_change.reason;
         let ordinal = &balance_change.ordinal;
         save_ethereum_block_balance_changes(
@@ -391,7 +416,9 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
         let call_type = system_call.call_type;
         let caller = hex::encode(&system_call.caller);
         let address = hex::encode(&system_call.address);
-        let system_call_value = hex::encode(&system_call.value.clone().unwrap().bytes);
+        let system_call_value = match &system_call.value.clone() {
+            Some(val) => BigInt::from_bytes_be(num_bigint::Sign::Plus,&val.bytes).to_string(),None => String::new()
+        };
         let gas_limit = system_call.gas_limit;
         let gas_consumed = system_call.gas_consumed;
         let return_data = hex::encode(&system_call.return_data);
@@ -467,8 +494,14 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
             let parent_id = format!("{}_{}",block_number,call_index);
             let parent_table = "ethereum_block_system_calls".to_string();
             let address = hex::encode(&balance_change.address);
-            let old_value = hex::encode(&balance_change.old_value.clone().unwrap().bytes);
-            let new_value  = hex::encode(&balance_change.new_value.clone().unwrap().bytes);
+            let old_value = match &balance_change.old_value.clone() {
+                Some(val) => hex::encode(&val.bytes),
+                None => String::new()
+            };
+            let new_value  = match &balance_change.new_value.clone() {
+                Some(val) => hex::encode(&val.bytes),
+                None => String::new()
+            };
             let ordinal = balance_change.ordinal;
             save_ethereum_block_system_calls_balance_changes(
                 id,
@@ -778,7 +811,7 @@ fn save_ethereum_block_system_calls(
         .change("block_number", (None,block_number))
         .change("parent_id", (None, parent_id))
         .change("parent_table", (None, parent_table))
-        .change("call_index", (None, call_index as u64)) // usize -> u64
+        .change("system_call_index", (None, call_index as u64)) // usize -> u64
         .change("index", (None, index))
         .change("parent_index", (None, parent_index))
         .change("depth", (None, depth))

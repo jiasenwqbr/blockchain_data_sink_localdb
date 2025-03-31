@@ -1,7 +1,5 @@
-use std::collections::HashMap;
 
-use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
-// use substreams_solana::pb::sf::solana::r#type::v1::Block;
+use substreams_database_change::pb::database::DatabaseChanges;
 
 use crate::pb::sf::solana::r#type::v1::Block;
 use crate::persistence::persistence;
@@ -37,13 +35,6 @@ fn out_db(mut block: Block) -> Result<DatabaseChanges, substreams::errors::Error
     });
 
     let mut database_changes: DatabaseChanges = Default::default();
-    // let json = serde_json::to_string_pretty(&block).expect("序列化失败");
-    // let block_number = block.block_height.unwrap_or_default().block_height;
-    // let mut composite_key: HashMap<String, String> = HashMap::new();
-    // composite_key.insert("id".to_string(), block_number.to_string());
-    // database_changes
-    //     .push_change_composite("solana_block", composite_key, 1, Operation::Create)
-    //     .change("data", (None, json));
     persistence::save_solana_block_all(block, &mut database_changes);
 
     Ok(database_changes)
