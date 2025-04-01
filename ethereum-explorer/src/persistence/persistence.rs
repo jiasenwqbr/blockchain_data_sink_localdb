@@ -20,8 +20,10 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
     .change("detail_level", (None,detail_level))
     .change("ver", (None,ver));
 
+    // save_block(block,database_changes);
+
     // block header
-    let header = block.header;
+    let header: Option<substreams_ethereum::pb::eth::v2::BlockHeader> = block.header;
     match header {
         Some(head) => {
             let parent_hash = hex::encode(head.parent_hash);
@@ -624,6 +626,12 @@ pub fn save_ethereum_block(block: Block, database_changes: &mut DatabaseChanges)
 
 
 }
+
+fn save_block(block:Block,database_changes: &mut DatabaseChanges){
+    
+}
+
+
 
 fn save_ethereum_block_system_calls_account_creations(
     id: String,

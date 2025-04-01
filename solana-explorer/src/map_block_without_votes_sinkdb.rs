@@ -1,7 +1,8 @@
 
 use substreams_database_change::pb::database::DatabaseChanges;
+use substreams_solana::pb::sf::solana::r#type::v1::Block;
 
-use crate::pb::sf::solana::r#type::v1::Block;
+// use crate::pb::sf::solana::r#type::v1::Block;
 use crate::persistence::persistence;
 
 // Vote111111111111111111111111111111111111111
@@ -21,7 +22,7 @@ fn out_db(mut block: Block) -> Result<DatabaseChanges, substreams::errors::Error
             return false;
         }
 
-        let transaction: &crate::pb::sf::solana::r#type::v1::Transaction = match trx.transaction.as_ref() {
+        let transaction = match trx.transaction.as_ref() {
             Some(transaction) => transaction,
             None => return false,
         };

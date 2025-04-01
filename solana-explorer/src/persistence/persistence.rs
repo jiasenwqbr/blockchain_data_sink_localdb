@@ -1,8 +1,8 @@
 use std::{collections::HashMap, usize};
 
-use crate::pb::sf::solana::r#type::v1::Block;
+// use crate::pb::sf::solana::r#type::v1::Block;
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
-use substreams_solana::base58;
+use substreams_solana::{base58, pb::sf::solana::r#type::v1::Block};
 pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChanges) {
     // let json = serde_json::to_string_pretty(&block).expect("序列化失败");
     // let block_number = block.block_height.unwrap_or_default().block_height;
@@ -36,7 +36,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
         database_changes,
     );
 
-    let transactions: Vec<crate::pb::sf::solana::r#type::v1::ConfirmedTransaction> = block.transactions;
+    let transactions= block.transactions;
     for (index, transaction) in transactions.iter().enumerate() {
         match &transaction.transaction {
             Some(tx) => {
@@ -48,10 +48,21 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                 // message
                 match &tx.message {
                     Some(msg) => {
-                        let num_required_signatures = msg.header.unwrap().num_required_signatures;
-                        let num_readonly_signed_accounts = msg.header.unwrap_or_default().num_readonly_signed_accounts;
-                        let num_readonly_unsigned_accounts =
-                            msg.header.unwrap_or_default().num_readonly_unsigned_accounts;
+                        //let num_required_signatures = msg.header.unwrap().num_required_signatures;
+                        let num_required_signatures =  match &msg.header {
+                            Some(val) => val.num_required_signatures,
+                            None => 0
+                        };
+                        // let num_readonly_signed_accounts = msg.header.unwrap_or_default().num_readonly_signed_accounts;
+                        let num_readonly_signed_accounts = match &msg.header {
+                            Some(val) => val.num_readonly_signed_accounts,
+                            None => 0
+                        };
+                        // let num_readonly_unsigned_accounts =msg.header.unwrap_or_default().num_readonly_unsigned_accounts;
+                        let num_readonly_unsigned_accounts = match &msg.header {
+                            Some(val) => val.num_readonly_unsigned_accounts,
+                            None => 0
+                        };
                         let versioned = msg.versioned;
                         let recent_blockhash = base58::encode(&msg.recent_blockhash);
                         save_solana_block_transaction_message(
@@ -89,7 +100,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                         }
 
                         // block transaction message address_table_lookups
-                        let address_table_lookups: &Vec<crate::pb::sf::solana::r#type::v1::MessageAddressTableLookup>  = &msg.address_table_lookups;
+                        let address_table_lookups = &msg.address_table_lookups;
                         for (atl_index,atl) in address_table_lookups.iter().enumerate() {
                             let account_key  = base58::encode(&atl.account_key);
                             let writable_indexes = base58::encode(&atl.writable_indexes);
@@ -128,7 +139,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                 let parent_table_id = format!("{}",block_number);
                 save_solana_block_transaction_status_meta(block_number,index,fee,inner_instructions_none,log_messages_none,return_data_none,return_data_program_id,return_data_data,parent_table_id,database_changes);
                 // block TransactionStatusMeta  InnerInstructions
-                let inner_instructions: &Vec<crate::pb::sf::solana::r#type::v1::InnerInstructions> = &meta.inner_instructions;
+                let inner_instructions= &meta.inner_instructions;
                 for (inner_instructions_index,ii) in inner_instructions.iter().enumerate(){
                     let ii_index = ii.index;
                     for (inner_instruction_index ,instruction) in ii.instructions.iter().enumerate(){
@@ -201,7 +212,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                     );
 
                 }
-                let post_token_balances = &meta.post_token_balances;
+                let post_token_balances= &meta.post_token_balances;
                 for (post_token_balance_index, token_balance) in post_token_balances.iter().enumerate() {
                     let account_index  = token_balance.account_index;
                     let mint = token_balance.mint.clone();
@@ -256,7 +267,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                     let post_balance = reward.post_balance;
                     let reward_type = reward.reward_type;
                     let commission = reward.commission.clone();
-                    let parent_id = format!("{}_{}",block_number,index);
+                    let parent_table_id = format!("{}_{}",block_number,index);
                     save_solana_block_transaction_status_meta_rewards(
                         block_number,
                         index,
@@ -266,7 +277,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                         post_balance,
                         reward_type,
                         commission,
-                        parent_id,
+                        parent_table_id,
                         database_changes
                     );
                 }
@@ -282,7 +293,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
         let post_balance = reward.post_balance;
         let reward_type = reward.reward_type;
         let commission = reward.commission.clone();
-        let parent_id = format!("{}",block_number);
+        let parent_table_id = format!("{}",block_number);
         save_solana_block_rewards(
             block_number,
             reward_index,
@@ -291,7 +302,7 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
             post_balance,
             reward_type,
             commission,
-            parent_id,
+            parent_table_id,
             database_changes
         );
     }
@@ -307,7 +318,7 @@ fn save_solana_block_rewards(
     post_balance : u64,
     reward_type : i32,
     commission : String,
-    parent_id : String,
+    parent_table_id : String,
     changes : &mut DatabaseChanges
 ){
     let mut composite_key: HashMap<String, String> = HashMap::new();
@@ -320,7 +331,7 @@ fn save_solana_block_rewards(
     .change("post_balance", (None,post_balance))
     .change("reward_type", (None,reward_type))
     .change("commission", (None,commission))
-    .change("parent_id", (None,parent_id));
+    .change("parent_table_id", (None,parent_table_id));
 }
 
 fn save_solana_block_transaction_status_meta_rewards(
@@ -332,7 +343,7 @@ fn save_solana_block_transaction_status_meta_rewards(
     post_balance : u64,
     reward_type : i32,
     commission : String,
-    parent_id : String,
+    parent_table_id : String,
     changes: &mut DatabaseChanges
 ){
     let mut composite_key: HashMap<String, String> = HashMap::new();
@@ -346,7 +357,7 @@ fn save_solana_block_transaction_status_meta_rewards(
     .change("post_balance", (None,post_balance))
     .change("reward_type", (None,reward_type))
     .change("commission", (None,commission))
-    .change("parent_id", (None,parent_id));
+    .change("parent_table_id", (None,parent_table_id));
 }
 
 fn save_solana_block_transaction_status_meta_pre_post_token_balances(
@@ -381,7 +392,7 @@ fn save_solana_block_transaction_status_meta_pre_post_token_balances(
     .change("ui_token_amount_ui_amount_string", (None,ui_token_amount_ui_amount_string))
     .change("owner", (None,owner))
     .change("program_id", (None,program_id))
-    .change("parent_id", (None,parent_table_id));
+    .change("parent_table_id", (None,parent_table_id));
 
 }
 fn save_solana_block_transaction_status_meta_inner_instruction(
