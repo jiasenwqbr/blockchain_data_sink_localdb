@@ -159,5 +159,131 @@ create table IF NOT EXISTS solana_block_rewards (
     commission text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+-------------------------------------------------------------------------------------------------------
+--- block   transaction instructions   id=block_number+transaction_index+instruction_index
+create table IF NOT EXISTS solana_transaction_parse_instruction(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    instruction_index bigint,
+    parent_table_id text,
+    accounts text,
+    data text,
+    program_id_index bigint,
+    stack_height bigint,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+
+
+-- block   transaction account_balances   id=block_number+transaction_index+account_balance_index
+
+create table IF NOT EXISTS solana_transaction_parse_account_balances(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    account_balance_index bigint,
+    parent_table_id text,
+    pre_balance bigint,
+    post_balance bigint,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- block   transaction accounts   id=block_number+transaction_index+account_accounts_index
+
+create table IF NOT EXISTS solana_transaction_parse_accounts(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    accounts_index bigint,
+    parent_table_id text,
+    pub_key text,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+-- block   transaction signature   id=block_number+transaction_index
+
+create table IF NOT EXISTS solana_transaction_parse_signature(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    parent_table_id text,
+    signature text,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- block   transaction signers   id=block_number+transaction_index+signers_index
+
+create table IF NOT EXISTS solana_transaction_parse_signers(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    signers_index bigint,
+    parent_table_id text,
+    signer text,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- block   transaction token_accounts   id=block_number+transaction_index+token_accounts_index
+
+create table IF NOT EXISTS solana_transaction_parse_token_accounts(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    token_accounts_index bigint,
+    parent_table_id text,
+    token_account0 text,
+    token_account1_address text,
+    token_account1_mint text,
+    token_account1_owner text,
+    token_account1_post_balance bigint,
+    token_aacount1_pre_balance bigint,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+
+--- block   transaction instructions  accounts id=block_number+transaction_index+instruction_index+logs_index
+
+create table IF NOT EXISTS solana_transaction_parse_logs(
+    id text primary key,
+    block_number bigint,
+    transaction_index bigint,
+    log_index bigint,
+    log_in_index bigint,
+    parent_table_id text,
+    log_type bigint,
+    program_id text,
+    data text,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+   
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

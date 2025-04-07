@@ -20,7 +20,7 @@ binaries:
 modules:
   - name: out_db
     kind: map
-    initialBlock: 308548473
+    initialBlock: 308548648
     inputs:
       - source: sf.solana.type.v1.Block
     output:

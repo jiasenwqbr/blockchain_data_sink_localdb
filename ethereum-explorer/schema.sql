@@ -322,8 +322,14 @@ create table IF NOT EXISTS ethereum_block_system_calls_account_creations(
 );
 
 
-
-
+-- block sol_usd
+create table IF NOT EXISTS ethereum_block_sol_usd(
+    id text primary key,
+    block_number bigint,
+    price double,
+    price_text text,
+    remark text
+);
 
 
 

@@ -3,6 +3,12 @@ use std::{collections::HashMap, usize};
 // use crate::pb::sf::solana::r#type::v1::Block;
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
 use substreams_solana::{base58, pb::sf::solana::r#type::v1::Block};
+use substreams_solana_utils::log::Log;
+use substreams_solana_utils as utils;
+use utils::transaction::{get_context, TransactionContext};
+use utils::instruction::{
+    get_structured_instructions, StructuredInstruction,
+};
 pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChanges) {
     // let json = serde_json::to_string_pretty(&block).expect("序列化失败");
     // let block_number = block.block_height.unwrap_or_default().block_height;
@@ -286,6 +292,150 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
         }
     }
 
+    // transactions parsed
+    for (index , transaction ) in transactions.iter().enumerate(){
+        let mut context: TransactionContext<'_>= get_context(transaction).unwrap();
+        let instructions: Vec<std::rc::Rc<StructuredInstruction<'_>>> = get_structured_instructions(transaction).unwrap();
+        for ( instruction_index,instruction) in instructions.iter().enumerate(){
+            context.update_balance(&instruction.instruction);
+
+            let ins = &instruction.instruction;
+            let accounts = ins.accounts();
+            let id = format!("{}_{}_{}",block_number,index,instruction_index);
+            let parent_table_id = format!("{}_{}",block_number,instruction_index);
+            let data = ins.data();
+            let program_id_index = ins.program_id_index();
+            let stack_height = ins.stack_height();
+
+            save_solana_transaction_parse_instruction(
+                id,
+                block_number,
+                index,
+                instruction_index,
+                parent_table_id,
+                accounts,
+                data,
+                program_id_index,
+                stack_height,
+                database_changes
+            );
+
+            let logs: std::cell::Ref<'_, Option<Vec<substreams_solana_utils::log::Log<'_>>>> = instruction.logs();
+            for (log_index,log) in logs.iter().enumerate() {
+                for (log_in_index,log_in) in log.iter().enumerate(){
+                   
+                    parse_log(block_number,
+                        index,
+                        instruction_index,
+                        log_index,
+                        log_in_index,
+                        log_in,
+                        database_changes);                    
+                }
+            }
+            
+
+        }
+        let account_balances: Vec<substreams_solana_utils::account::AccountBalance> = context.account_balances;
+        for (account_balance_index,account_balance) in account_balances.iter().enumerate(){
+            let id: String = format!("{}_{}_{}",block_number,index,account_balance_index);
+            let parent_table_id = format!("{}",block_number);
+            let post_balance = account_balance.post_balance;
+            let pre_balance = account_balance.pre_balance;
+            save_solana_transaction_parse_account_balances(
+                id,
+                block_number,
+                index,
+                account_balance_index,
+                parent_table_id,
+                pre_balance,
+                post_balance,
+                database_changes
+            );
+        }
+        
+        let accounts: Vec<substreams_solana_utils::pubkey::PubkeyRef<'_>> = context.accounts;
+        for (account_index,account) in accounts.iter().enumerate(){
+            let pub_key = account.0;
+            let id: String = format!("{}_{}_{}",block_number,index,account_index);
+            let parent_table_id = format!("{}",block_number);
+            save_solana_transaction_parse_accounts(
+                id,
+                block_number,
+                index,
+                account_index,
+                parent_table_id,
+                pub_key,
+                database_changes
+            );
+
+        }
+        let signature = context.signature;
+        let id: String = format!("{}_{}",block_number,index);
+        let parent_table_id = format!("{}",block_number);
+        save_solana_transaction_parse_signature(
+            id,
+            block_number,
+            index,
+            parent_table_id,
+            signature,
+            database_changes
+        );
+        let signers = context.signers;
+        for (signer_index,signer) in signers.iter().enumerate(){
+            let pub_key = signer.0;
+            let id: String = format!("{}_{}_{}",block_number,index,signer_index);
+            let parent_table_id = format!("{}",block_number);
+            save_solana_transaction_parse_signers(
+                id,
+                block_number,
+                index,
+                signer_index,
+                parent_table_id,
+                pub_key,
+                database_changes
+            );
+
+        }
+        let token_accounts = context.token_accounts;
+        for (token_account_index, token_account) in token_accounts.iter().enumerate(){
+            let id = format!("{}_{}_{}",block_number,index,token_account_index);
+            let parent_table_id = format!("{}",block_number);
+            let token_account0 =  token_account.0.0;
+            let token_account1 = token_account.1;
+            let token_account1_address =  token_account1.address.0;
+            let token_account1_mint: [u8; 32] = token_account1.mint.0;
+            let token_account1_owner = token_account1.owner.0;
+            let token_account1_post_balance = match token_account1.post_balance{
+                Some(val) => val,
+                None => 0
+            };
+
+            let token_aacount1_pre_balance = match token_account1.pre_balance{
+                Some(val) => val,
+                None => 0
+            };
+            save_solana_transaction_parse_token_accounts(
+                id,
+                block_number,
+                index,
+                token_account_index,
+                parent_table_id,
+                token_account0,
+                token_account1_address,
+                token_account1_mint,
+                token_account1_owner,
+                token_account1_post_balance,
+                token_aacount1_pre_balance,
+                database_changes
+            );
+        }
+
+    }
+    
+
+
+
     let rewards = block.rewards;
     for (reward_index,reward) in rewards.iter().enumerate(){
         let pubkey = reward.pubkey.clone();
@@ -309,6 +459,332 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
     
     
 }
+
+fn parse_log(
+    block_number : u64,
+    transaction_index:usize,
+    instruction_index : usize,
+    log_index:usize,
+    log_in_index:usize,
+    log: &Log<'_>,
+    changes : &mut DatabaseChanges
+){
+    match  log {
+        Log::Invoke(invoke_log) => {
+            let program_id = match invoke_log.program_id(){
+                Ok(val) => val,
+                Err(_) => String::new(),
+            };
+            let invoke_depth = match invoke_log.invoke_depth(){
+                Ok(val) => val,
+                Err(_) => 0
+            };
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                1,
+                program_id,
+                invoke_depth.to_string(),
+                changes
+            );
+
+
+        },
+        Log::Success(success_log) => {
+            let program_id = match success_log.program_id(){
+                Ok(val) => val,
+                Err(_) => String::new(),
+            };
+            let log = success_log.log;
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                2,
+                program_id,
+                log.clone(),
+                changes
+            );
+
+        },
+        Log::Return(return_log) => {
+            let program_id = match return_log.program_id(){
+                Ok(val) => val,
+                Err(_) => String::new(),
+            };
+            let data = match return_log.data(){
+                Ok(val) => base58::encode(val),
+                Err(_) => String::new()
+            };
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+            
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                3,
+                program_id,
+                data,
+                changes
+            );
+            
+        },
+        Log::Data(data_log) => {
+            let data = match data_log.data(){
+                Ok(val) => base58::encode(val),
+                Err(_) => String::new()
+            };
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                4,
+                String::new(),
+                data,
+                changes
+            );
+
+        },
+        Log::Program(program_log) => {
+            let message = match program_log.message() {
+                Ok(val) => val,
+                Err(_) => String::new()
+            };
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                5,
+                String::new(),
+                message,
+                changes
+            );
+
+        },
+        Log::Truncated(truncated_log) => {
+            let log: &String = truncated_log.log;
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                6,
+                String::new(),
+                log.clone(),
+                changes
+            );
+        },
+        Log::Unknown(unknown_log) => {
+            let log = unknown_log.log;
+            let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
+            let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
+            save_solana_transaction_parse_logs(
+                id,
+                block_number,
+                transaction_index,
+                log_index,
+                log_in_index,
+                parent_table_id,
+                10,
+                String::new(),
+                log.clone(),
+                changes
+            );
+        },
+    }
+}
+
+fn save_solana_transaction_parse_logs(
+    id:String,
+    block_number:u64,
+    transaction_index:usize,
+    log_index:usize,
+    log_in_index:usize,
+    parent_table_id:String,
+    log_type:u64,
+    program_id:String,
+    data:String,
+    changes:&mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_logs_return_log", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("log_index", (None,log_index as u64))
+    .change("log_in_index", (None,log_in_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("log_type", (None,log_type))
+    .change("program_id", (None,program_id))
+    .change("data", (None,data));
+}
+
+
+
+fn save_solana_transaction_parse_token_accounts(
+    id:String,
+    block_number:u64,
+    transaction_index:usize,
+    token_account_index:usize,
+    parent_table_id : String,
+    token_account0:&Vec<u8>,
+    token_account1_address:&Vec<u8>,
+    token_account1_mint:[u8; 32],
+    token_account1_owner:[u8; 32],
+    token_account1_post_balance:u64,
+    token_aacount1_pre_balance:u64,
+    changes:&mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_token_accounts", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("token_account_index", (None,token_account_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("token_account0", (None,base58::encode(token_account0)))
+    .change("token_account1_address", (None,base58::encode(token_account1_address)))
+    .change("token_account1_mint", (None,base58::encode(token_account1_mint)))
+    .change("token_account1_owner", (None,base58::encode(token_account1_owner)))
+    .change("token_account1_post_balance", (None,token_account1_post_balance))
+    .change("token_aacount1_pre_balance", (None,token_aacount1_pre_balance));
+}
+
+
+
+fn save_solana_transaction_parse_signers(
+    id:String,
+    block_number:u64,
+    transaction_index:usize,
+    signer_index:usize,
+    parent_table_id:String,
+    pub_key:&Vec<u8>,
+    changes : &mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_signers", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("signer_index", (None,signer_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("signer", (None,base58::encode(pub_key)));
+}
+
+fn save_solana_transaction_parse_signature(
+    id:String,
+    block_number:u64,
+    transaction_index:usize,
+    parent_table_id:String,
+    signature:String,
+    changes:&mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_signature", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("signature", (None,signature));
+
+}
+
+fn save_solana_transaction_parse_accounts(
+    id:String,
+    block_number:u64,
+    transaction_index:usize,
+    account_index:usize,
+    parent_table_id:String,
+    pub_key:&Vec<u8>,
+    changes:&mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_accounts", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("account_index", (None,account_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("pub_key", (None,base58::encode(pub_key)));
+}
+
+fn save_solana_transaction_parse_account_balances(
+    id : String,
+    block_number:u64,
+    transaction_index:usize,
+    account_balance_index:usize,
+    parent_table_id:String,
+    pre_balance:u64,
+    post_balance:u64,
+    changes:&mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_account_balances", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("account_balance_index", (None,account_balance_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("pre_balance", (None,pre_balance))
+    .change("post_balance", (None,post_balance));
+}
+
+
+fn save_solana_transaction_parse_instruction(
+    id:String,
+    block_number:u64,
+    transaction_index:usize,
+    instruction_index:usize,
+    parent_table_id:String,
+    account : &Vec<u8>,
+    data:&Vec<u8>,
+    program_id_index : u32,
+    stack_height:Option<u32>,
+    changes : &mut DatabaseChanges
+){
+    let mut composite_key: HashMap<String, String> = HashMap::new();
+    composite_key.insert("id".to_string(), id);
+    changes.push_change_composite("solana_transaction_parse_instruction", composite_key, 1, Operation::Create)
+    .change("block_number", (None,block_number))
+    .change("transaction_index", (None,transaction_index as u64))
+    .change("instruction_index", (None,instruction_index as u64))
+    .change("parent_table_id", (None,parent_table_id))
+    .change("account", (None,base58::encode(account)))
+    .change("data", (None,base58::encode(data)))
+    .change("program_id_index", (None,program_id_index))
+    .change("stack_height", (None,stack_height.unwrap()));
+}
+
 
 fn save_solana_block_rewards(
     block_number : u64,

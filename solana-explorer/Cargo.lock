@@ -24,6 +24,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
+name = "base64"
+version = "0.22.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
 name = "bigdecimal"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -50,10 +56,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "borsh"
+version = "1.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ad8646f98db542e39fc66e68a20b2144f6a732636df7c2354e74645faaa433ce"
+dependencies = [
+ "borsh-derive",
+ "cfg_aliases",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "1.5.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fdd1d3c0c2f5833f22386f252fe8ed005c7f59fdcddeef025c01b4c3b9fd9ac3"
+dependencies = [
+ "once_cell",
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "bs58"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
+
+[[package]]
+name = "bs58"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bf88ba1141d185c399bee5288d850d63b8369520c1eafc32a0430b5b6c287bf4"
+dependencies = [
+ "tinyvec",
+]
 
 [[package]]
 name = "bytes"
@@ -66,6 +104,12 @@ name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
+
+[[package]]
+name = "cfg_aliases"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
 name = "cpufeatures"
@@ -665,7 +709,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4d3aae508c9e574a48f833228e429720943527c72d5fd393ec35b1cb6139535"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
  "prost",
  "prost-build",
  "prost-types",
@@ -676,7 +720,7 @@ name = "substreams-solana-explorer"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "bs58",
+ "bs58 0.4.0",
  "getrandom 0.2.15",
  "hex-literal",
  "num-bigint",
@@ -688,6 +732,7 @@ dependencies = [
  "substreams-database-change",
  "substreams-solana",
  "substreams-solana-program-instructions",
+ "substreams-solana-utils",
 ]
 
 [[package]]
@@ -696,7 +741,7 @@ version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4abe3f6ce8ea4956a6d2461be3fe813cf36e1f45aa18996bba0813c07e210a1d"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
 ]
 
 [[package]]
@@ -708,6 +753,20 @@ dependencies = [
  "anyhow",
  "num_enum",
  "substreams",
+]
+
+[[package]]
+name = "substreams-solana-utils"
+version = "0.1.5"
+source = "git+https://github.com/0xpapercut/substreams-solana-utils?tag=v0.1.5#2928e7e6638ec7653684320a7abe212cee1f15be"
+dependencies = [
+ "anyhow",
+ "base64",
+ "borsh",
+ "bs58 0.5.1",
+ "regex",
+ "substreams",
+ "substreams-solana",
 ]
 
 [[package]]
@@ -784,6 +843,21 @@ dependencies = [
  "quote",
  "syn 2.0.100",
 ]
+
+[[package]]
+name = "tinyvec"
+version = "1.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "09b3661f17e86524eccd4371ab0429194e0d7c008abb45f7a7495b1719463c71"
+dependencies = [
+ "tinyvec_macros",
+]
+
+[[package]]
+name = "tinyvec_macros"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "toml_datetime"
