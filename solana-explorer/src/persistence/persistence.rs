@@ -2,6 +2,7 @@ use std::{collections::HashMap, usize};
 
 // use crate::pb::sf::solana::r#type::v1::Block;
 use substreams_database_change::pb::database::{table_change::Operation, DatabaseChanges};
+use substreams_solana::pb::sf::solana::r#type::v1::ConfirmedTransaction;
 use substreams_solana::{base58, pb::sf::solana::r#type::v1::Block};
 use substreams_solana_utils::log::Log;
 use substreams_solana_utils as utils;
@@ -42,8 +43,11 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
         database_changes,
     );
 
-    let transactions= block.transactions;
+    let transactions: Vec<substreams_solana::pb::sf::solana::r#type::v1::ConfirmedTransaction>= block.transactions;
     for (index, transaction) in transactions.iter().enumerate() {
+
+        // transactions parsed
+        parsed_transaction(index,transaction,block_number,database_changes);
         match &transaction.transaction {
             Some(tx) => {
                 let singnatures = &tx.signatures;
@@ -292,12 +296,47 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
         }
     }
 
-    // transactions parsed
-    for (index , transaction ) in transactions.iter().enumerate(){
-        let mut context: TransactionContext<'_>= get_context(transaction).unwrap();
+    
+    
+    
+
+
+
+    let rewards = block.rewards;
+    for (reward_index,reward) in rewards.iter().enumerate(){
+        let pubkey = reward.pubkey.clone();
+        let lamports = reward.lamports;
+        let post_balance = reward.post_balance;
+        let reward_type = reward.reward_type;
+        let commission = reward.commission.clone();
+        let parent_table_id = format!("{}",block_number);
+        save_solana_block_rewards(
+            block_number,
+            reward_index,
+            pubkey,
+            lamports,
+            post_balance,
+            reward_type,
+            commission,
+            parent_table_id,
+            database_changes
+        );
+    }
+    
+    
+}
+
+
+
+fn parsed_transaction(
+    index:usize,
+    transaction:&ConfirmedTransaction,
+    block_number:u64,
+    database_changes : &mut DatabaseChanges){
+    let mut context: TransactionContext<'_>= get_context(transaction).unwrap();
         let instructions: Vec<std::rc::Rc<StructuredInstruction<'_>>> = get_structured_instructions(transaction).unwrap();
         for ( instruction_index,instruction) in instructions.iter().enumerate(){
-            context.update_balance(&instruction.instruction);
+             context.update_balance(&instruction.instruction);
 
             let ins = &instruction.instruction;
             let accounts = ins.accounts();
@@ -321,18 +360,21 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
             );
 
             let logs: std::cell::Ref<'_, Option<Vec<substreams_solana_utils::log::Log<'_>>>> = instruction.logs();
-            for (log_index,log) in logs.iter().enumerate() {
-                for (log_in_index,log_in) in log.iter().enumerate(){
-                   
+            if let Some(log_vec) = logs.as_ref(){
+
+
+                for (log_index,log) in log_vec.iter().enumerate() { 
                     parse_log(block_number,
                         index,
                         instruction_index,
                         log_index,
-                        log_in_index,
-                        log_in,
-                        database_changes);                    
-                }
+                        0,
+                        log,
+                        database_changes);   
+                 }
             }
+            
+            
             
 
         }
@@ -430,35 +472,10 @@ pub fn save_solana_block_all(block: Block, database_changes: &mut DatabaseChange
                 database_changes
             );
         }
-
-    }
-    
-
-
-
-    let rewards = block.rewards;
-    for (reward_index,reward) in rewards.iter().enumerate(){
-        let pubkey = reward.pubkey.clone();
-        let lamports = reward.lamports;
-        let post_balance = reward.post_balance;
-        let reward_type = reward.reward_type;
-        let commission = reward.commission.clone();
-        let parent_table_id = format!("{}",block_number);
-        save_solana_block_rewards(
-            block_number,
-            reward_index,
-            pubkey,
-            lamports,
-            post_balance,
-            reward_type,
-            commission,
-            parent_table_id,
-            database_changes
-        );
-    }
-    
-    
 }
+
+
+
 
 fn parse_log(
     block_number : u64,
@@ -471,7 +488,7 @@ fn parse_log(
 ){
     match  log {
         Log::Invoke(invoke_log) => {
-            let program_id = match invoke_log.program_id(){
+            let program_id: String = match invoke_log.program_id(){
                 Ok(val) => val,
                 Err(_) => String::new(),
             };
@@ -550,6 +567,8 @@ fn parse_log(
                 Ok(val) => base58::encode(val),
                 Err(_) => String::new()
             };
+
+            
             let id = format!("{}_{}_{}_{}_{}",block_number,transaction_index,instruction_index,log_index,log_in_index);
             let parent_table_id = format!("{}_{}_{}",block_number,transaction_index,instruction_index);
             save_solana_transaction_parse_logs(
@@ -638,7 +657,7 @@ fn save_solana_transaction_parse_logs(
 ){
     let mut composite_key: HashMap<String, String> = HashMap::new();
     composite_key.insert("id".to_string(), id);
-    changes.push_change_composite("solana_transaction_parse_logs_return_log", composite_key, 1, Operation::Create)
+    changes.push_change_composite("solana_transaction_parse_logs", composite_key, 1, Operation::Create)
     .change("block_number", (None,block_number))
     .change("transaction_index", (None,transaction_index as u64))
     .change("log_index", (None,log_index as u64))
@@ -670,7 +689,7 @@ fn save_solana_transaction_parse_token_accounts(
     changes.push_change_composite("solana_transaction_parse_token_accounts", composite_key, 1, Operation::Create)
     .change("block_number", (None,block_number))
     .change("transaction_index", (None,transaction_index as u64))
-    .change("token_account_index", (None,token_account_index as u64))
+    .change("token_accounts_index", (None,token_account_index as u64))
     .change("parent_table_id", (None,parent_table_id))
     .change("token_account0", (None,base58::encode(token_account0)))
     .change("token_account1_address", (None,base58::encode(token_account1_address)))
@@ -733,7 +752,7 @@ fn save_solana_transaction_parse_accounts(
     changes.push_change_composite("solana_transaction_parse_accounts", composite_key, 1, Operation::Create)
     .change("block_number", (None,block_number))
     .change("transaction_index", (None,transaction_index as u64))
-    .change("account_index", (None,account_index as u64))
+    .change("accounts_index", (None,account_index as u64))
     .change("parent_table_id", (None,parent_table_id))
     .change("pub_key", (None,base58::encode(pub_key)));
 }
@@ -779,7 +798,7 @@ fn save_solana_transaction_parse_instruction(
     .change("transaction_index", (None,transaction_index as u64))
     .change("instruction_index", (None,instruction_index as u64))
     .change("parent_table_id", (None,parent_table_id))
-    .change("account", (None,base58::encode(account)))
+    .change("accounts", (None,base58::encode(account)))
     .change("data", (None,base58::encode(data)))
     .change("program_id_index", (None,program_id_index))
     .change("stack_height", (None,stack_height.unwrap()));

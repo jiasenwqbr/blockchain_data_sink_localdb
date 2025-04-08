@@ -220,7 +220,7 @@ create table IF NOT EXISTS solana_transaction_parse_signers(
     id text primary key,
     block_number bigint,
     transaction_index bigint,
-    signers_index bigint,
+    signer_index bigint,
     parent_table_id text,
     signer text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -258,7 +258,8 @@ create table IF NOT EXISTS solana_transaction_parse_logs(
     data text,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-   
+
+
 
 
 
